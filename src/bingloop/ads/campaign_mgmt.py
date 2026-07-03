@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from bingloop.ads.accounts import require_account
 from bingloop.ads.client import CAMPAIGN_BASE, call_service, raise_on_partial_errors
 
 if TYPE_CHECKING:
@@ -258,6 +259,7 @@ def get_negative_keywords(
     GetNegativeKeywordsByEntityIds accepts at most one EntityId per call, so
     "all campaigns" fans out: list campaigns first, then query each.
     """
+    account_id = require_account(config, account_id)
     ctx = dict(account_id=account_id)
 
     if campaign_id:

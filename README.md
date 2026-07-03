@@ -12,7 +12,8 @@ The internal package is `bingloop`.
 
 **Read**
 - `health_check` — config → OAuth token → accounts probe
-- `list_accounts` — all ad accounts under the manager customer (CID)
+- `list_accounts` — every account the authenticated user can access, across **all**
+  customers, each tagged with the customer_id (CID) resolved for it
 - `split_date_range` — safe non-overlapping week windows (inclusive-range guard)
 - `get_campaign_performance`, `get_ad_group_performance`, `get_ad_performance`,
   `get_keyword_performance`, `get_search_terms`, `get_product_performance`,
@@ -52,8 +53,8 @@ The internal package is `bingloop`.
 | `BING_ADS_CLIENT_ID` | Azure app (client) ID |
 | `BING_ADS_CLIENT_SECRET` | Azure app secret |
 | `BING_ADS_DEVELOPER_TOKEN` | Microsoft Advertising developer token |
-| `BING_ADS_CUSTOMER_ID` | manager account CustomerId (CID) |
-| `BING_ADS_ACCOUNT_ID` | default ad account CustomerAccountId (AID) |
+| `BING_ADS_CUSTOMER_ID` | *(optional)* fallback CID; normally unset — see multi-account note |
+| `BING_ADS_ACCOUNT_ID` | *(optional)* default account (AID) when a tool call omits `account_id` |
 | `BING_ADS_REFRESH_TOKEN_SEED` | one-time refresh token from the consent flow |
 | `BING_ADS_TOKEN_PATH` | volume-backed path for the live token (default `/data/bing_ads_refresh_token.txt`) |
 | `BING_ADS_DEFAULT_TIMEZONE` | timezone set on new campaigns (default `EasternTimeUSCanada`) |
@@ -61,6 +62,25 @@ The internal package is `bingloop`.
 | `SERVER_URL` | public URL, for DNS-rebinding host allow-listing |
 | `BINGLOOP_MAX_DAILY_BUDGET` | budget cap for `draft_campaign` (default 50) |
 | `BINGLOOP_REQUIRE_DRY_RUN` | force every apply to dry-run (default `true`) |
+
+### Multi-account / multi-customer access
+
+The server is **multi-tenant**: it targets any ad account the authenticated user
+can reach, across every customer — not one hardcoded manager. On first use it
+calls `GetUser` + `SearchAccounts` to discover all accessible accounts and build
+an **account → customer (AID → CID)** map, cached in-process.
+
+This matters because Bing's `CustomerId` header is not a universal key: each
+report/management call must send the CID *through which the user reaches that
+account*, or it fails with `106 UserIsNotAuthorized` / `1490 InvalidCustomerId`.
+The map (sourced from `GetUser.CustomerRoles`, which also handles accounts linked
+into sub-managers) lets every tool resolve the right CID from the `account_id`
+you pass. Just call `list_accounts`, then pass `account_id` to any tool.
+
+`BING_ADS_CUSTOMER_ID` / `BING_ADS_ACCOUNT_ID` are therefore optional — leave
+them unset for pure multi-account use. Set `BING_ADS_ACCOUNT_ID` only if you want
+a default account when a call omits `account_id`; set `BING_ADS_CUSTOMER_ID` only
+as a fallback CID for accounts not yet surfaced by discovery.
 
 ### ⚠️ Refresh token rotation — read this before deploying
 

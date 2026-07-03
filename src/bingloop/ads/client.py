@@ -128,10 +128,18 @@ def call_service(
     mid-flight). Raises RuntimeError with the response body on other errors so
     tool callers surface actionable API messages (invalid column, bad ID, ...).
     """
-    customer_id = customer_id or config.ads.customer_id
     account_id = account_id or config.ads.account_id
     url = f"{base}/{path.lstrip('/')}"
     include_account = base != CUSTOMER_BASE
+
+    # Customer Management ignores the account headers, so skip CID resolution
+    # there (it would recurse — discovery itself calls Customer Management).
+    if include_account and not customer_id:
+        from bingloop.ads.accounts import resolve_customer_id
+
+        customer_id = resolve_customer_id(config, account_id)
+    elif not customer_id:
+        customer_id = config.ads.customer_id
 
     headers = build_headers(config, customer_id, account_id,
                             include_account_headers=include_account)

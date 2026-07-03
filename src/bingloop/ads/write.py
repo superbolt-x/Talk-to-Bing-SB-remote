@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from bingloop.ads.accounts import require_account
+
 if TYPE_CHECKING:
     from bingloop.config import BingloopConfig
 
@@ -67,8 +69,8 @@ def draft_responsive_search_ad(
     plan = ChangePlan(
         operation="create_responsive_search_ad",
         entity_type="ad",
-        account_id=account_id or config.ads.account_id,
-        customer_id=customer_id or config.ads.customer_id,
+        account_id=require_account(config, account_id),
+        customer_id=customer_id,  # empty -> resolved from account_id at apply time
         changes={
             "ad_group_id": ad_group_id,
             "headlines": headlines,
@@ -120,8 +122,8 @@ def draft_keywords(
     plan = ChangePlan(
         operation="add_keywords",
         entity_type="keyword",
-        account_id=account_id or config.ads.account_id,
-        customer_id=customer_id or config.ads.customer_id,
+        account_id=require_account(config, account_id),
+        customer_id=customer_id,  # empty -> resolved from account_id at apply time
         changes={
             "ad_group_id": ad_group_id,
             "keywords": keywords,
@@ -172,8 +174,8 @@ def add_negative_keywords(
         operation="add_negative_keywords",
         entity_type="negative_keyword",
         entity_id=campaign_id,
-        account_id=account_id or config.ads.account_id,
-        customer_id=customer_id or config.ads.customer_id,
+        account_id=require_account(config, account_id),
+        customer_id=customer_id,  # empty -> resolved from account_id at apply time
         changes={
             "campaign_id": campaign_id,
             "keywords": keywords,
@@ -240,8 +242,8 @@ def remove_entity(
         operation="remove_entity",
         entity_type=entity_type,
         entity_id=entity_id,
-        account_id=account_id or config.ads.account_id,
-        customer_id=customer_id or config.ads.customer_id,
+        account_id=require_account(config, account_id),
+        customer_id=customer_id,  # empty -> resolved from account_id at apply time
         changes={"action": "DELETE"},
         requires_double_confirm=True,
     )
@@ -301,8 +303,8 @@ def draft_campaign(
     plan = ChangePlan(
         operation="create_campaign",
         entity_type="campaign",
-        account_id=account_id or config.ads.account_id,
-        customer_id=customer_id or config.ads.customer_id,
+        account_id=require_account(config, account_id),
+        customer_id=customer_id,  # empty -> resolved from account_id at apply time
         changes={
             "campaign_name": campaign_name,
             "daily_budget": daily_budget,
@@ -614,8 +616,8 @@ def _draft_status_change(
         operation=operation,
         entity_type=entity_type,
         entity_id=entity_id,
-        account_id=account_id or config.ads.account_id,
-        customer_id=customer_id or config.ads.customer_id,
+        account_id=require_account(config, account_id),
+        customer_id=customer_id,  # empty -> resolved from account_id at apply time
         changes={"target_status": target_status},
     )
     store_plan(plan)
@@ -636,7 +638,9 @@ def _execute_plan(config: BingloopConfig, plan: object) -> dict:
     """Dispatch to the right Campaign Management call based on plan.operation."""
     from bingloop.ads import campaign_mgmt as cm
 
-    ctx = dict(customer_id=plan.customer_id, account_id=plan.account_id)
+    # Pass account only — the managing CID is resolved from it at call time,
+    # so a stale/blank stored customer_id can't send the wrong header.
+    ctx = dict(account_id=plan.account_id)
     changes = plan.changes
 
     if plan.operation == "create_campaign":

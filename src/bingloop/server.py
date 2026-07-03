@@ -205,12 +205,12 @@ def health_check() -> dict:
 @mcp.tool(annotations=_READONLY)
 @_safe
 def list_accounts() -> dict:
-    """List all accessible Bing Ads accounts under the manager customer (CID).
+    """List every Bing Ads account the authenticated user can access, across all customers.
 
-    Returns account names, IDs, numbers, and status. Use this to discover
-    which accounts are available before running performance queries. Pass the
-    returned account_id to other tools; empty account_id uses the configured
-    default.
+    Returns each account's id, name, number, status, and the customer_id (CID)
+    that other tools use for it automatically. Call this first to discover which
+    accounts are available, then pass an account_id to any other tool — the
+    matching customer is resolved for you. No account is assumed by default.
     """
     from bingloop.ads.read import list_accounts as _impl
 

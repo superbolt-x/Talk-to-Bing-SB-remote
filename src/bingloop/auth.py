@@ -150,6 +150,8 @@ def get_access_token(config: BingloopConfig, force_refresh: bool = False) -> str
 
 def check_config(config: BingloopConfig) -> None:
     """Raise ConfigError listing any missing required credentials."""
+    # customer_id / account_id are NOT required: the server discovers every
+    # accessible account (and its managing customer) via GetUser + SearchAccounts.
     missing = []
     if not config.ads.client_id:
         missing.append("BING_ADS_CLIENT_ID")
@@ -157,8 +159,6 @@ def check_config(config: BingloopConfig) -> None:
         missing.append("BING_ADS_CLIENT_SECRET")
     if not config.ads.developer_token:
         missing.append("BING_ADS_DEVELOPER_TOKEN")
-    if not config.ads.customer_id:
-        missing.append("BING_ADS_CUSTOMER_ID")
     if missing:
         raise ConfigError(
             f"Missing required environment variables: {', '.join(missing)}."

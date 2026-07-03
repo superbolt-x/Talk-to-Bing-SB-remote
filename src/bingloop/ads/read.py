@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from bingloop.ads.accounts import require_account
 from bingloop.ads.client import build_report_request, get_report, to_float, to_int
 
 if TYPE_CHECKING:
@@ -76,7 +77,7 @@ def _run(
     if date_range_start and date_range_end:
         validate_iso_date_range(date_range_start, date_range_end)
 
-    account_id = account_id or config.ads.account_id
+    account_id = require_account(config, account_id)
     request = build_report_request(
         report_type,
         columns,
@@ -86,7 +87,7 @@ def _run(
     )
     rows = get_report(
         config, request,
-        customer_id=customer_id or config.ads.customer_id,
+        customer_id=customer_id,  # empty -> resolved from account_id by call_service
         account_id=account_id,
     )
     return _normalize_rows(rows, conversions_col)
@@ -97,32 +98,25 @@ def _run(
 # ---------------------------------------------------------------------------
 
 
-def list_accounts(config: BingloopConfig) -> dict:
-    """List all ad accounts under the manager customer via Customer Management."""
-    from bingloop.ads.client import CUSTOMER_BASE, call_service
+def list_accounts(config: BingloopConfig, *, refresh: bool = False) -> dict:
+    """List every ad account the authenticated user can access, across all customers.
 
-    response = call_service(
-        config, CUSTOMER_BASE, "AccountsInfo/Query",
-        {"CustomerId": int(config.ads.customer_id), "OnlyParentAccounts": False},
-        account_id=config.ads.account_id or config.ads.customer_id,
-    )
-    accounts = [
-        {
-            "account_id": a.get("Id"),
-            "account_name": a.get("Name"),
-            "account_number": a.get("Number"),
-            "status": a.get("AccountLifeCycleStatus"),
-            "pause_reason": a.get("PauseReason"),
-        }
-        for a in response.get("AccountsInfo", [])
-    ]
+    Discovers accounts via GetUser + SearchAccounts and reports each account
+    with the customer_id (CID) that other tools will use for it automatically.
+    """
+    from bingloop.ads.accounts import get_accounts
+
+    data = get_accounts(config, refresh=refresh)
+    accounts = data["accounts"]
+    customers = sorted({r["customer_id"] for r in accounts if r["customer_id"] is not None})
     return {
-        "customer_id": config.ads.customer_id,
         "accounts": accounts,
         "total_accounts": len(accounts),
+        "total_customers": len(customers),
         "note": (
-            "Pass account_id to other tools to target a specific account; "
-            "empty account_id uses the configured default."
+            "Pass account_id to any tool to target a specific account — the "
+            "matching customer_id is resolved automatically. No default account "
+            "is assumed."
         ),
     }
 
@@ -324,7 +318,7 @@ def get_extension_performance(
     if date_range_start and date_range_end:
         validate_iso_date_range(date_range_start, date_range_end)
 
-    account_id_resolved = account_id or config.ads.account_id
+    account_id_resolved = require_account(config, account_id)
     request = build_report_request(
         "AdExtensionDetailReportRequest",
         ["TimePeriod", "AccountId", "CampaignId", "CampaignName", "AdExtensionId",
@@ -337,7 +331,7 @@ def get_extension_performance(
     )
     raw = get_report(
         config, request,
-        customer_id=customer_id or config.ads.customer_id,
+        customer_id=customer_id,  # empty -> resolved from account_id by call_service
         account_id=account_id_resolved,
     )
 
@@ -434,7 +428,7 @@ def run_report(
     if aggregation != "Summary" and "TimePeriod" not in columns:
         columns = ["TimePeriod"] + columns
 
-    account_id_resolved = account_id or config.ads.account_id
+    account_id_resolved = require_account(config, account_id)
     if campaign_ids:
         scope: dict = {"Campaigns": [
             {"AccountId": int(account_id_resolved), "CampaignId": int(cid)}
@@ -451,7 +445,7 @@ def run_report(
     )
     raw = get_report(
         config, request,
-        customer_id=customer_id or config.ads.customer_id,
+        customer_id=customer_id,  # empty -> resolved from account_id by call_service
         account_id=account_id_resolved,
     )
     truncated = len(raw) > limit

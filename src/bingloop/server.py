@@ -783,6 +783,97 @@ def remove_entity(
     )
 
 
+@mcp.tool(annotations=_READONLY)
+@_safe
+def get_ads(
+    ad_group_id: str,
+    account_id: str = "",
+) -> dict:
+    """List an ad group's ads with their current text — RSA headlines and
+    descriptions (with pins), final URLs, status and editorial status.
+
+    Use this to see what an RSA says right now before drafting swaps with
+    draft_update_rsa (the performance reports do not carry RSA text).
+    """
+    from bingloop.ads.swaps import get_ads as _impl
+
+    return _impl(_config, ad_group_id=ad_group_id, account_id=account_id)
+
+
+@mcp.tool(annotations=_WRITE)
+@_safe
+def draft_update_rsa(
+    ad_id: str,
+    headline_swaps: list[dict] | None = None,
+    description_swaps: list[dict] | None = None,
+    account_id: str = "",
+) -> dict:
+    """Draft swapping headlines/descriptions on an EXISTING Responsive Search Ad — returns a PREVIEW.
+
+    Edits the ad in place: it keeps its ID and goes back through editorial
+    review. Use this instead of creating a new ad + pausing the old one.
+
+    ad_id: "adGroupId~adId" (Bing needs the ad group ID).
+    headline_swaps: [{"old": "current headline text", "new": "replacement"}]
+    description_swaps: [{"old": "current description text", "new": "replacement"}]
+      - "old" must match the live text exactly (see get_ads); the replacement keeps its pin.
+      - "old" empty = add "new" as an extra (unpinned) asset.
+    Limits: headlines <= 30 chars (3-15 total), descriptions <= 90 chars (2-4 total).
+
+    Call confirm_and_apply with the plan_id. If the ad changed after the draft,
+    the apply stops and asks for a new draft.
+    """
+    from bingloop.ads.swaps import draft_update_rsa as _impl
+
+    return _impl(
+        _config,
+        account_id=account_id,
+        ad_id=ad_id,
+        headline_swaps=headline_swaps,
+        description_swaps=description_swaps,
+    )
+
+
+@mcp.tool(annotations=_WRITE)
+@_safe
+def draft_swap_asset(
+    level: str,
+    field_type: str,
+    parent_id: str = "",
+    old_extension_id: str = "",
+    new_extension: dict | None = None,
+    account_id: str = "",
+) -> dict:
+    """Draft replacing, adding or unlinking a sitelink, callout or image ad extension — returns a PREVIEW.
+
+    level: "account", "campaign" or "ad_group" — where the extension is associated.
+    parent_id: the campaign or ad group ID (not needed for "account").
+    field_type: "SITELINK", "CALLOUT" or "IMAGE".
+    old_extension_id: the extension to remove from that level (omit to only add).
+    new_extension (omit to only unlink), one of:
+      - SITELINK: {"link_text", "description1", "description2", "final_url"}
+        (link_text <= 25 chars, descriptions <= 35 chars each, both or neither)
+      - CALLOUT:  {"text"} (<= 25 chars)
+      - any type: {"extension_id"} to associate an extension already in the account
+        (the only option for IMAGE for now)
+
+    On apply: create the new extension, associate it, then remove the old
+    association. A failure part-way leaves both linked, never neither, and says
+    which step failed. The old extension itself is never deleted.
+    """
+    from bingloop.ads.swaps import draft_swap_asset as _impl
+
+    return _impl(
+        _config,
+        account_id=account_id,
+        level=level,
+        parent_id=parent_id,
+        field_type=field_type,
+        old_extension_id=old_extension_id,
+        new_extension=new_extension,
+    )
+
+
 @mcp.tool(annotations=_DESTRUCTIVE)
 @_safe
 def confirm_and_apply(

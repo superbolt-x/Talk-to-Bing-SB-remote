@@ -684,6 +684,16 @@ def _execute_plan(config: BingloopConfig, plan: object) -> dict:
             **ctx,
         )
 
+    if plan.operation == "update_responsive_search_ad":
+        from bingloop.ads.swaps import apply_update_rsa
+
+        return apply_update_rsa(config, plan)
+
+    if plan.operation == "swap_asset":
+        from bingloop.ads.swaps import apply_swap_asset
+
+        return apply_swap_asset(config, plan)
+
     if plan.operation == "remove_entity":
         return cm.delete_entity(
             config,

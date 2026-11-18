@@ -20,12 +20,15 @@ The internal package is `bingloop`.
   `get_asset_group_performance`, `get_asset_performance`,
   `get_extension_performance`
 - `get_negative_keywords`
+- `get_ads` — an ad group's ads with current RSA headlines/descriptions and pins
 - `list_report_types` + `run_report` — the generic escape hatch (Bing has no
   query language, so this replaces `run_gaql`)
 
 **Write** (all behind the draft → `confirm_and_apply` safety layer)
 - `draft_campaign`, `draft_responsive_search_ad`, `draft_keywords`,
   `add_negative_keywords`
+- `draft_update_rsa` — swap headlines/descriptions on an existing RSA in place (same ad ID)
+- `draft_swap_asset` — replace, add or unlink a sitelink, callout or image extension at account, campaign or ad group level
 - `pause_entity`, `enable_entity`, `remove_entity`
 - `confirm_and_apply` (defaults to `dry_run=True`)
 
